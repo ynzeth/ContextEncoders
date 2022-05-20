@@ -4,6 +4,10 @@ from torch import nn
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Using {device} device")
 
+# Input dimensionality : [3, 256, 256]
+# Encoding dimensionality : [1024]
+# Output dimensionality : [3, 256, 256]
+
 class ReconstructiveAutoEncoder(nn.Module):
     def __init__(self):
         super(ReconstructiveAutoEncoder, self).__init__()
@@ -23,7 +27,7 @@ class ReconstructiveAutoEncoder(nn.Module):
             nn.ReLU(),
 
             # Decoder
-            nn.Unflatten(1, (32, 32)),
+            nn.Unflatten(1, (1, 32, 32)),
             nn.ConvTranspose2d(1, 2, (4, 4), stride= 2, padding= 1),
             nn.ReLU(),
             nn.ConvTranspose2d(2, 3, (4, 4), stride= 2, padding= 1),
