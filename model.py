@@ -1,12 +1,9 @@
 import torch
 from torch import nn
+from torchinfo import summary
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Using {device} device")
-
-# Input dimensionality : [3, 256, 256]
-# Encoding dimensionality : [1024]
-# Output dimensionality : [3, 256, 256]
 
 class ReconstructiveAutoEncoder(nn.Module):
     def __init__(self):
@@ -15,30 +12,39 @@ class ReconstructiveAutoEncoder(nn.Module):
         # Layers
         self.layers = nn.Sequential(
             # Encoder
-            nn.Conv2d(3, 3, (4, 4), stride= 2, padding= 1),
+            nn.Conv2d(3, 16, (11, 11), stride= 4, padding= 0),
             nn.ReLU(),
-            nn.Conv2d(3, 2, (4, 4), stride= 2, padding= 1),
+            nn.MaxPool2d((3, 3), stride=2),
+
+            nn.Conv2d(16, 32, (5, 5), stride= 1, padding= 2),
             nn.ReLU(),
-            nn.Conv2d(2, 1, (4, 4), stride= 2, padding= 1),
-            nn.Flatten(),
+            nn.MaxPool2d((3, 3), stride=2),
+
+            nn.Conv2d(32, 64, (3, 3), stride= 1, padding= 1),
+            nn.ReLU(),
+            nn.MaxPool2d((3, 3), stride=2),
+            
+            # nn.Flatten(),
 
             # Fully connected
-            nn.Linear(1024,  1024),
-            nn.ReLU(),
+            # nn.Linear(1024,  1024),
+            # nn.ReLU(),
 
             # Decoder
-            nn.Unflatten(1, (1, 32, 32)),
-            nn.ConvTranspose2d(1, 2, (4, 4), stride= 2, padding= 1),
+            # nn.Unflatten(1, (1, 32, 32)),
+            nn.ConvTranspose2d(64, 32, (3, 3), stride= 3, padding= 1),
             nn.ReLU(),
-            nn.ConvTranspose2d(2, 3, (4, 4), stride= 2, padding= 1),
+            nn.ConvTranspose2d(32, 16, (4, 4), stride= 3, padding= 0),
             nn.ReLU(),
-            nn.ConvTranspose2d(3, 3, (4, 4), stride= 2, padding= 1),
-            nn.ReLU()
+            nn.ConvTranspose2d(16, 3, (5, 5), stride= 2, padding=1),
+            nn.ReLU(),
         )
 
     def forward(self, x):
         for layer in self.layers:
-            print(layer, "| input shape :" , x.shape)
+            # print(layer, "| input shape :" , x.shape)
             x = layer.forward(x)
 
         return x
+
+summary(ReconstructiveAutoEncoder().cuda(), (3, 227, 227))
