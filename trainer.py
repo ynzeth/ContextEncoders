@@ -38,20 +38,16 @@ net = model_channelWise.ReconstructiveAutoEncoderChannelWise()
 optimizer = torch.optim.Adam(net.parameters(), 0.001)
 
 for i, (input, target) in enumerate(zip(inputDataloader, targetDataloader)):
-    before = net.layers[-13].weights[0].data.clone()
-
     optimizer.zero_grad()
 
     input = functional.erase(input, 65, 65, 99, 99, 0)
     output = net.forward(input)
 
-    lossFunction = nn.L1Loss()
+    lossFunction = nn.MSELoss()
     loss = lossFunction(output, target)
 
     loss.backward()
     optimizer.step()
-
-    print(torch.allclose(before, net.layers[-13].weights[0].data))
 
     print(i, torch.sum(loss).item())
 
