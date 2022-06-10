@@ -1,77 +1,76 @@
-import model
+import model_channelWise
 import torch
 from torch import nn
 from DataManager import LoadFromFolder
 from torchvision import transforms
-from visualizer import visualizeReconstruction, visualizeTensor
+from visualizer import pasteInpainting, visualizeTensor
+from torchvision.transforms import functional
 
-#################################################### LOAD DATA AND NET
+BATCHSIZE = 32
+
+############################################# LOAD DATA AND NETWORK
 
 input_transform = transforms.Compose([
+                        transforms.Resize((227, 227)),
                         transforms.ToTensor()
                         ])
 
 target_transform = transforms.Compose([
+                        transforms.Resize((227, 227)),
                         transforms.CenterCrop(99),
                         transforms.ToTensor()
                         ])
 
-inputSetPath = "./data/paris_corrupted"
-targetSetPath = "./data/paris_complete"
+path = "./data"
 
-inputDataset = LoadFromFolder(inputSetPath, transform=input_transform)
-inputDataloader = torch.utils.data.DataLoader(inputDataset)
+inputDataset = LoadFromFolder(path, transform=input_transform)
+inputDataloader = torch.utils.data.DataLoader(inputDataset, batch_size = BATCHSIZE)
 
-targetDataset = LoadFromFolder(targetSetPath, transform=target_transform)
-targetDataloader = torch.utils.data.DataLoader(targetDataset)
+targetDataset = LoadFromFolder(path, transform=target_transform)
+targetDataloader = torch.utils.data.DataLoader(targetDataset, batch_size = BATCHSIZE)
 
-net = model.ReconstructiveAutoEncoder()
+net = model_channelWise.ReconstructiveAutoEncoderChannelWise()
 
-################################################################
+#################################################################
 
-# for i, (input, target) in enumerate(zip(iter(inputDataloader), iter(targetDataloader))):
-#     before = net.layers[-2].weight.data.clone()
+################################################### TRAINING LOOP
 
-#     optimizer = torch.optim.Adam(net.parameters(), lr=0.05)
-#     optimizer.zero_grad()
+optimizer = torch.optim.Adam(net.parameters(), 0.001)
 
-#     output = net.forward(input)
-#     lossFunction = nn.MSELoss()
-#     loss = lossFunction(output, target)
+for i, (input, target) in enumerate(zip(inputDataloader, targetDataloader)):
+    before = net.layers[-13].weights[0].data.clone()
 
-#     loss.backward()
-#     optimizer.step()
-
-#     print(torch.allclose(net.layers[-2].weight.data, before))
-
-#     if i == 99:
-#         visualizeTensor(output[0])
-#         print(output[0])
-
-###################################### OVERFITTING ON FIRST SAMPLE
-
-input = next(iter(inputDataloader))
-target = next(iter(targetDataloader))
-
-for i in range (100000):
-    before = net.layers[-2].weight.data.clone()
-
-    optimizer = torch.optim.SGD(net.parameters(), lr=0.2)
     optimizer.zero_grad()
 
+    input = functional.erase(input, 65, 65, 99, 99, 0)
     output = net.forward(input)
-    lossFunction = nn.MSELoss()
+
+    lossFunction = nn.L1Loss()
     loss = lossFunction(output, target)
 
     loss.backward()
     optimizer.step()
 
-    print(torch.allclose(net.layers[-2].weight.data, before))
+    print(torch.allclose(before, net.layers[-13].weights[0].data))
 
-    if i == 99999:
-        visualizeTensor(output[0])
+    print(i, torch.sum(loss).item())
 
-print(output[0])
-print(target[0])
+################################################################
 
-#####################################################
+########################################### VALIDATION
+
+validationPath = "./validation"
+
+validationDataset = LoadFromFolder(validationPath, transform=input_transform)
+validationloader = torch.utils.data.DataLoader(validationDataset, batch_size = 10)
+
+input = next(iter(validationloader))
+input = functional.erase(input, 65, 65, 99, 99, 0)
+output = net.forward(input)
+
+show = pasteInpainting(output[0], input[0])
+for i, o in enumerate(output):
+    if i > 0:
+        show = torch.cat((show, pasteInpainting(o, input[i])), 2)
+
+visualizeTensor(show)
